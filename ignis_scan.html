@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>IGNIS · Scanner</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --bg:      #0a0a0f;
+    --card:    #13131a;
+    --border:  #1e1e2e;
+    --ok:      #00e676;
+    --warn:    #ffab00;
+    --danger:  #ff1744;
+    --blue:    #448aff;
+    --stoic:   #448aff;
+    --text:    #e8e8f0;
+    --muted:   #6b6b80;
+    --font:    'Rajdhani', sans-serif;
+    --mono:    'Share Tech Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--card);
+  }
+  .header-logo {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--text);
+  }
+  .header-logo span { color: var(--warn); }
+  .header-sub {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--mono);
+    letter-spacing: 1px;
+  }
+
+  /* ── SCREENS ── */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ── SCANNER ── */
+  .scanner-wrap {
+    position: relative;
+    width: 100%;
+    background: #000;
+    height: calc(100vh - 130px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  #scannerVideo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .scan-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .scan-frame {
+    width: 220px;
+    height: 220px;
+    position: relative;
+  }
+  .scan-frame::before, .scan-frame::after,
+  .scan-frame .corner-br, .scan-frame .corner-tl {
+    content: '';
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border-color: var(--warn);
+    border-style: solid;
+  }
+  .scan-frame::before { top:0; left:0; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+  .scan-frame::after  { top:0; right:0; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+  .scan-frame .corner-br { bottom:0; right:0; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+  .scan-frame .corner-tl { bottom:0; left:0; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+
+  .scan-line {
+    position: absolute;
+    left: 10px; right: 10px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--warn), transparent);
+    animation: scanMove 2s ease-in-out infinite;
+    top: 10px;
+  }
+  @keyframes scanMove {
+    0%   { top: 10px; opacity: 1; }
+    100% { top: 200px; opacity: 0.3; }
+  }
+
+  .scan-status {
+    background: rgba(0,0,0,0.75);
+    color: var(--text);
+    padding: 10px 24px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-family: var(--mono);
+    letter-spacing: 1px;
+    border: 1px solid var(--border);
+  }
+
+  .scan-footer {
+    padding: 16px 20px;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .scan-hint {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: var(--mono);
+    letter-spacing: 0.5px;
+  }
+
+  /* ── INFO SCREEN ── */
+  .info-wrap {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: calc(100vh - 60px);
+  }
+
+  .btn-back-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 0 8px;
+  }
+  .btn-back {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    font-size: 20px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .burner-title {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  .burner-sub {
+    font-size: 13px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 12px; bottom: 12px;
+    width: 3px;
+    border-radius: 2px;
+  }
+  .card.ok::before    { background: var(--ok); }
+  .card.blue::before  { background: var(--blue); }
+  .card.warn::before  { background: var(--warn); }
+  .card.muted::before { background: var(--muted); }
+
+  .card-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .card-icon { font-size: 22px; min-width: 28px; }
+  .card-body { flex: 1; }
+  .card-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+  }
+  .card-sub {
+    font-size: 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    margin-top: 2px;
+  }
+  .card-badge {
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: var(--mono);
+    white-space: nowrap;
+  }
+  .badge-ok   { background: rgba(0,230,118,0.12); color: var(--ok); }
+  .badge-warn { background: rgba(255,171,0,0.12);  color: var(--warn); }
+  .badge-blue { background: rgba(68,138,255,0.12); color: var(--blue); }
+  .badge-danger { background: rgba(255,23,68,0.12); color: var(--danger); }
+  .badge-muted  { background: rgba(107,107,128,0.12); color: var(--muted); }
+
+  .card-detail {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--mono);
+    margin-top: 6px;
+  }
+
+  /* ── STOCK ITEMS ── */
+  .stock-item {
+    font-size: 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    padding: 6px 0;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .stock-qty {
+    font-weight: 700;
+    color: var(--warn);
+  }
+
+  /* Toggle */
+  .toggle-btn {
+    margin-top: 10px;
+    width: 100%;
+    padding: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 8px;
+    font-size: 11px;
+    font-family: var(--mono);
+    cursor: pointer;
+    text-align: center;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── FOOTER ── */
+  .scan-timestamp {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: var(--mono);
+    text-align: center;
+    padding: 8px 0 16px;
+  }
+
+  /* ── LOADING ── */
+  .loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    gap: 16px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--warn);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyA-ZE_noIMTttf_s_9jQ0U8elfDZuLf88o",
+    authDomain: "ignis-ab6b6.firebaseapp.com",
+    projectId: "ignis-ab6b6",
+    storageBucket: "ignis-ab6b6.firebasestorage.app",
+    messagingSenderId: "522763402694",
+    appId: "1:522763402694:web:2bd84d65e27e5f2744c6c7"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+
+  window._fbGetData = async () => {
+    const snap = await getDoc(doc(db, 'ignis', 'datos'));
+    return snap.exists() ? snap.data() : null;
+  };
+  window._fbReady = true;
+</script>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div>
+    <div class="header-logo">IGN<span>IS</span></div>
+    <div class="header-sub">ECLIPSE TJ · SCANNER</div>
+  </div>
+</div>
+
+<!-- SCANNER SCREEN -->
+<div class="screen active" id="scanScreen">
+  <div class="scanner-wrap">
+    <video id="scannerVideo" playsinline autoplay muted></video>
+    <div class="scan-overlay">
+      <div class="scan-frame">
+        <div class="corner-br"></div>
+        <div class="corner-tl"></div>
+        <div class="scan-line"></div>
+      </div>
+      <div class="scan-status" id="scanStatus">Iniciando cámara...</div>
+    </div>
+  </div>
+  <div class="scan-footer">
+    <div class="scan-hint">Apuntá al código QR del quemador</div>
+  </div>
+</div>
+
+<!-- INFO SCREEN -->
+<div class="screen" id="infoScreen">
+  <div class="info-wrap" id="infoWrap">
+    <div class="loading"><div class="spinner"></div>Cargando datos...</div>
+  </div>
+</div>
+
+<!-- jsQR -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+
+<script>
+let scannerStream = null;
+let scannerFrame  = null;
+let _data = null;
+
+// Iniciar scanner
+function startScanner() {
+  const video  = document.getElementById('scannerVideo');
+  const status = document.getElementById('scanStatus');
+
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then(stream => {
+      scannerStream = stream;
+      video.srcObject = stream;
+      video.play().catch(() => {});
+      status.textContent = 'Buscando QR...';
+      scanFrame();
+    })
+    .catch(e => { status.textContent = '❌ No se pudo acceder a la cámara'; });
+}
+
+function scanFrame() {
+  const video = document.getElementById('scannerVideo');
+  const canvas = document.createElement('canvas');
+  const status = document.getElementById('scanStatus');
+
+  if (video.readyState === video.HAVE_ENOUGH_DATA && typeof jsQR === 'function') {
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+    const img  = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(img.data, img.width, img.height);
+    if (code && code.data) {
+      const match = code.data.match(/ignis:\/\/([^?]+)/);
+      if (match) {
+        status.textContent = '✅ QR detectado!';
+        stopScanner();
+        showInfo(match[1]);
+        return;
+      }
+    }
+  }
+  scannerFrame = requestAnimationFrame(scanFrame);
+}
+
+function stopScanner() {
+  if (scannerStream) { scannerStream.getTracks().forEach(t => t.stop()); scannerStream = null; }
+  if (scannerFrame)  { cancelAnimationFrame(scannerFrame); scannerFrame = null; }
+}
+
+// Cargar datos y mostrar info
+async function showInfo(burnerId) {
+  document.getElementById('scanScreen').classList.remove('active');
+  document.getElementById('infoScreen').classList.add('active');
+
+  // Esperar Firebase si no está listo
+  let attempts = 0;
+  while (!window._fbReady && attempts++ < 20) {
+    await new Promise(r => setTimeout(r, 100));
+  }
+
+  try {
+    _data = await window._fbGetData();
+  } catch(e) { console.warn(e); }
+
+  if (!_data) {
+    document.getElementById('infoWrap').innerHTML = `
+      <div class="loading">❌ Error cargando datos de Firebase</div>`;
+    return;
+  }
+
+  const burners   = _data.burners   || [];
+  const history   = _data.history   || [];
+  const maintData = _data.maintData || {};
+  const inventory = _data.inventory || [];
+
+  const b = burners.find(x => x.id === burnerId);
+  if (!b) {
+    document.getElementById('infoWrap').innerHTML = `
+      <div class="loading">❌ Quemador no encontrado: ${burnerId}</div>`;
+    return;
+  }
+
+  // Calibración
+  const lastCalib = history
+    .filter(h => h.id === burnerId || h.burnerId === burnerId)
+    .sort((a,c) => new Date(c.date+' '+(c.ts||'')) - new Date(a.date+' '+(a.ts||'')))[0];
+  const calibStatus = lastCalib ? (lastCalib.diag || 'CALIBRADO') : 'Sin calibrar';
+  const calibDate   = lastCalib ? (lastCalib.date + (lastCalib.ts ? ' ' + lastCalib.ts : '')) : '—';
+  const calibUser   = lastCalib?.user || '—';
+  const calibClass  = lastCalib
+    ? (lastCalib.diagClass === 'diag-ok' ? 'badge-ok'
+      : lastCalib.diagClass === 'diag-stoic' ? 'badge-blue'
+      : lastCalib.diagClass === 'diag-excess' ? 'badge-warn'
+      : 'badge-danger') : 'badge-muted';
+
+  // Mantenimiento
+  const maint = maintData[burnerId];
+  const maintDate  = maint?.fecha || maint?.date || '—';
+  const maintAll   = maint ? Object.entries(maint).filter(([k,v]) => typeof v === 'object' && v?.status) : [];
+  const maintBad   = maintAll.filter(([k,v]) => v.status !== 'ok');
+  const maintPct   = maintAll.length > 0 ? Math.round((maintAll.length - maintBad.length) / maintAll.length * 100) : 0;
+  const maintClass = maintPct === 100 ? 'badge-ok' : maintPct >= 70 ? 'badge-blue' : maintPct >= 40 ? 'badge-warn' : 'badge-danger';
+
+  // Stock
+  const espItems = inventory.filter(s => {
+    if (!s.models) return false;
+    if (Array.isArray(s.models)) return s.models.includes(b.model);
+    return s.models === b.model;
+  });
+  const todosItems = inventory.filter(s => {
+    if (!s.models) return false;
+    if (Array.isArray(s.models)) return s.models.includes('TODOS');
+    return s.models === 'TODOS';
+  });
+  const espCount   = espItems.reduce((s,i) => s+(i.qty||0), 0);
+  const todosCount = todosItems.reduce((s,i) => s+(i.qty||0), 0);
+
+  const stockEspHtml = espItems.length > 0
+    ? espItems.map(s => `<div class="stock-item"><span>${s.desc||s.part}</span><span class="stock-qty">${s.qty||0} pzs</span></div>`).join('')
+    : '<div class="stock-item" style="color:var(--muted);">Sin repuestos específicos en stock</div>';
+
+  const stockTodosHtml = todosItems.map(s =>
+    `<div class="stock-item"><span>${s.desc||s.part}</span><span class="stock-qty">${s.qty||0} pzs</span></div>`
+  ).join('');
+
+  const now = new Date();
+  const ts  = now.toLocaleString('es', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+
+  document.getElementById('infoWrap').innerHTML = `
+    <div class="btn-back-bar">
+      <button class="btn-back" onclick="goBack()">‹</button>
+      <div>
+        <div class="burner-title">${b.id}</div>
+        <div class="burner-sub">${b.model} · ${b.zone}</div>
+      </div>
+    </div>
+
+    <div class="card ok">
+      <div class="card-row">
+        <div class="card-icon">🔥</div>
+        <div class="card-body">
+          <div class="card-label">Última Calibración</div>
+          <div class="card-sub">${calibDate}</div>
+        </div>
+        <div class="card-badge ${calibClass}">${calibStatus}</div>
+      </div>
+      ${lastCalib ? `<div class="card-detail">Técnico: ${calibUser}</div>` : ''}
+    </div>
+
+    <div class="card blue">
+      <div class="card-row">
+        <div class="card-icon">🔧</div>
+        <div class="card-body">
+          <div class="card-label">Último Mantenimiento</div>
+          <div class="card-sub">${maintDate}</div>
+        </div>
+        <div class="card-badge ${maintClass}">${maintPct}%</div>
+      </div>
+      ${maint ? `<div class="card-detail">Items afectados: ${maintBad.length} de ${maintAll.length}</div>` : ''}
+    </div>
+
+    <div class="card warn">
+      <div class="card-row" style="align-items:flex-start;cursor:pointer;" onclick="togglePanel('esp')">
+        <div class="card-icon">📦</div>
+        <div class="card-body">
+          <div class="card-label">Repuestos</div>
+          <div class="card-sub">${b.model}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:2px;">
+          <div class="card-badge badge-warn">${espCount} pzs</div>
+          <div id="arr-esp" style="color:var(--warn);">▾</div>
+        </div>
+      </div>
+      <div id="panel-esp" style="display:none;margin-top:4px;">${stockEspHtml}</div>
+    </div>
+
+    ${todosItems.length > 0 ? `
+    <div class="card warn">
+      <div class="card-row" style="align-items:flex-start;cursor:pointer;" onclick="togglePanel('todos')">
+        <div class="card-icon">📦</div>
+        <div class="card-body">
+          <div class="card-label">Repuestos</div>
+          <div class="card-sub">Todos los modelos</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:2px;">
+          <div class="card-badge badge-warn">${todosCount} pzs</div>
+          <div id="arr-todos" style="color:var(--warn);">▾</div>
+        </div>
+      </div>
+      <div id="panel-todos" style="display:none;margin-top:4px;">${stockTodosHtml}</div>
+    </div>` : ''}
+
+    <div class="scan-timestamp">Escaneado · ${ts}</div>
+  `;
+}
+
+function togglePanel(id) {
+  const panel = document.getElementById('panel-' + id);
+  const arr   = document.getElementById('arr-' + id);
+  if (!panel) return;
+  const open = panel.style.display === 'none';
+  panel.style.display = open ? 'block' : 'none';
+  arr.textContent = open ? '▴' : '▾';
+}
+
+function goBack() {
+  document.getElementById('infoScreen').classList.remove('active');
+  document.getElementById('scanScreen').classList.add('active');
+  startScanner();
+}
+
+// Arrancar
+startScanner();
+</script>
+</body>
+</html>
